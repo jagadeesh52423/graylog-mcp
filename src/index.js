@@ -21,10 +21,17 @@ import {
     handleListTemplates, handleDeleteTemplate, handleRenameTemplate,
     handleExportTemplates, handleImportTemplates
 } from "./tools/template-mgmt.js";
+import {
+    redactSecrets,
+    handleGetEventDefinition, handleCreateEventDefinition, handleUpdateEventDefinition,
+    handleDeleteEventDefinition, handleSetEventDefinitionEnabled,
+    handleGetEventNotification, handleCreateEventNotification, handleUpdateEventNotification,
+    handleDeleteEventNotification, handleTestEventNotification
+} from "./tools/event-admin.js";
 
 const server = new Server({
     name: "graylog-mcp-server",
-    version: "2.2.0",
+    version: "2.4.0",
 }, {
     capabilities: {
         tools: {},
@@ -89,6 +96,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "get_event_notifications") {
         return handleGetEventNotifications(request);
     }
+
+    if (name === "get_event_definition") return handleGetEventDefinition(request);
+    if (name === "create_event_definition") return handleCreateEventDefinition(request);
+    if (name === "update_event_definition") return handleUpdateEventDefinition(request);
+    if (name === "delete_event_definition") return handleDeleteEventDefinition(request);
+    if (name === "set_event_definition_enabled") return handleSetEventDefinitionEnabled(request);
+    if (name === "get_event_notification") return handleGetEventNotification(request);
+    if (name === "create_event_notification") return handleCreateEventNotification(request);
+    if (name === "update_event_notification") return handleUpdateEventNotification(request);
+    if (name === "delete_event_notification") return handleDeleteEventNotification(request);
+    if (name === "test_event_notification") return handleTestEventNotification(request);
 
     if (name === "cluster_log_messages") {
         return handleClusterLogMessages(request);
@@ -885,7 +903,7 @@ async function handleGetEventNotifications(request) {
         return {
             content: [{
                 type: "text",
-                text: JSON.stringify(data),
+                text: JSON.stringify(redactSecrets(data)),
             }],
         };
     } catch (err) {

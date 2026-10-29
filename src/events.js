@@ -1,7 +1,11 @@
 import axios from "axios";
 
-export async function searchEvents(baseUrl, apiToken, payload) {
-    const response = await axios.post(`${baseUrl}/api/events/search`, payload, {
+export async function graylogRequest(baseUrl, apiToken, method, path, { data, params } = {}) {
+    const response = await axios.request({
+        method,
+        url: `${baseUrl}/api${path}`,
+        data,
+        params,
         headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
@@ -15,41 +19,11 @@ export async function searchEvents(baseUrl, apiToken, payload) {
     return response.data;
 }
 
-export async function fetchEventDefinitions(baseUrl, apiToken, page, perPage, query) {
-    const params = {};
-    if (page) params.page = page;
-    if (perPage) params.per_page = perPage;
-    if (query) params.query = query;
+export const searchEvents = (baseUrl, apiToken, payload) =>
+    graylogRequest(baseUrl, apiToken, "POST", "/events/search", { data: payload });
 
-    const response = await axios.get(`${baseUrl}/api/events/definitions`, {
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-By': 'graylog-mcp',
-        },
-        auth: {
-            username: apiToken,
-            password: 'token',
-        },
-        params,
-    });
-    return response.data;
-}
+export const fetchEventDefinitions = (baseUrl, apiToken, page, perPage, query) =>
+    graylogRequest(baseUrl, apiToken, "GET", "/events/definitions", { params: { page, per_page: perPage, query } });
 
-export async function fetchEventNotifications(baseUrl, apiToken, page, perPage) {
-    const params = {};
-    if (page) params.page = page;
-    if (perPage) params.per_page = perPage;
-
-    const response = await axios.get(`${baseUrl}/api/events/notifications`, {
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-By': 'graylog-mcp',
-        },
-        auth: {
-            username: apiToken,
-            password: 'token',
-        },
-        params,
-    });
-    return response.data;
-}
+export const fetchEventNotifications = (baseUrl, apiToken, page, perPage) =>
+    graylogRequest(baseUrl, apiToken, "GET", "/events/notifications", { params: { page, per_page: perPage } });

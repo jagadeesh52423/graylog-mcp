@@ -1,3 +1,19 @@
+const WRITE_NOTE = " WRITES to Graylog; on protected connections (requireWriteConfirm, default for connection names with a 'prod' or 'production' token) needs confirm: \"yes\" — without it, returns what would be written.";
+const ID = { type: "string", description: "Graylog entity id" };
+const CONFIRM = { type: "string", description: "Set to \"yes\" to authorize the write on protected connections." };
+const DRY_RUN = { type: "boolean", description: "Validate via Graylog (POST /events/definitions/validate) and return the resulting object; writes nothing, no confirm needed." };
+const THRESHOLD = {
+    type: "object",
+    description: "Shortcut condition, translated into config.series + config.conditions. e.g. { type: \"count\", operator: \">\", value: 10 }",
+    properties: {
+        type: { type: "string", description: "Series function. Default 'count'; others (avg, sum, min, max, card) need field." },
+        field: { type: "string" },
+        operator: { type: "string", enum: [">", ">=", "<", "<=", "=="] },
+        value: { type: "number" },
+    },
+    required: ["operator", "value"],
+};
+
 export const toolDefinitions = [
     {
         name: "list_connections",
@@ -558,7 +574,7 @@ export const toolDefinitions = [
     },
     {
         name: "get_event_notifications",
-        description: "Get Graylog event notifications. Use 'use_connection' first to select a connection.",
+        description: "Get Graylog event notifications (secrets such as webhook_url/api_key are redacted). Use 'use_connection' first to select a connection.",
         inputSchema: {
             type: "object",
             properties: {
@@ -572,6 +588,96 @@ export const toolDefinitions = [
                 },
             },
         },
+    },
+    {
+        name: "get_event_definition",
+        description: "Get a single Graylog event definition (alert) by id.",
+        inputSchema: { type: "object", properties: { id: ID }, required: ["id"] },
+    },
+    {
+        name: "create_event_definition",
+        description: "Create a Graylog event definition (alert). Boilerplate fields are defaulted; minimal input is title, config.query, config.streams, config.search_within_ms, config.execute_every_ms and a condition (threshold or config.series+conditions)." + WRITE_NOTE,
+        inputSchema: {
+            type: "object",
+            properties: {
+                definition: { type: "object", description: "EventDefinitionDto shape (see get_event_definition output). Omitted boilerplate is filled with defaults." },
+                threshold: THRESHOLD,
+                schedule: { type: "boolean", description: "Enable (schedule) the definition after creating. Default true." },
+                dryRun: DRY_RUN,
+                confirm: CONFIRM,
+            },
+            required: ["definition"],
+        },
+    },
+    {
+        name: "update_event_definition",
+        description: "Update a Graylog event definition: fetches it, deep-merges patch (arrays replaced), PUTs the full object. Enabled/disabled state is preserved." + WRITE_NOTE,
+        inputSchema: {
+            type: "object",
+            properties: {
+                id: ID,
+                patch: { type: "object", description: "Partial EventDefinitionDto to merge. Arrays replace existing arrays." },
+                threshold: THRESHOLD,
+                dryRun: DRY_RUN,
+                confirm: CONFIRM,
+            },
+            required: ["id", "patch"],
+        },
+    },
+    {
+        name: "delete_event_definition",
+        description: "Delete a Graylog event definition." + WRITE_NOTE,
+        inputSchema: { type: "object", properties: { id: ID, confirm: CONFIRM }, required: ["id"] },
+    },
+    {
+        name: "set_event_definition_enabled",
+        description: "Enable (schedule) or disable (unschedule) a Graylog event definition." + WRITE_NOTE,
+        inputSchema: {
+            type: "object",
+            properties: { id: ID, enabled: { type: "boolean", description: "true = schedule, false = unschedule" }, confirm: CONFIRM },
+            required: ["id", "enabled"],
+        },
+    },
+    {
+        name: "get_event_notification",
+        description: "Get a single Graylog event notification by id (secrets redacted).",
+        inputSchema: { type: "object", properties: { id: ID }, required: ["id"] },
+    },
+    {
+        name: "create_event_notification",
+        description: "Create a Graylog event notification (slack-notification-v1, teams-notification-v2, email-notification-v1, http-notification-v1, ...)." + WRITE_NOTE,
+        inputSchema: {
+            type: "object",
+            properties: {
+                notification: { type: "object", description: "{ title, description?, config: { type, ...type-specific fields } }" },
+                confirm: CONFIRM,
+            },
+            required: ["notification"],
+        },
+    },
+    {
+        name: "update_event_notification",
+        description: "Update a Graylog event notification: deep-merges patch onto the stored (unredacted) notification, so secrets you don't change are kept. Encrypted fields (basic_auth, api_secret) take { set_value: \"...\" } to change." + WRITE_NOTE,
+        inputSchema: {
+            type: "object",
+            properties: {
+                id: ID,
+                patch: { type: "object", description: "Partial notification to merge. \"[REDACTED]\" values are ignored (treated as unchanged)." },
+                dryRun: { type: "boolean", description: "Return the merged (redacted) notification without writing." },
+                confirm: CONFIRM,
+            },
+            required: ["id", "patch"],
+        },
+    },
+    {
+        name: "delete_event_notification",
+        description: "Delete a Graylog event notification." + WRITE_NOTE,
+        inputSchema: { type: "object", properties: { id: ID, confirm: CONFIRM }, required: ["id"] },
+    },
+    {
+        name: "test_event_notification",
+        description: "Send a test alert through an existing notification (delivers a real Slack/Teams/email/HTTP message)." + WRITE_NOTE,
+        inputSchema: { type: "object", properties: { id: ID, confirm: CONFIRM }, required: ["id"] },
     },
     {
         name: "cluster_log_messages",

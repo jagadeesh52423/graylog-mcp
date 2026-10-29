@@ -6,13 +6,13 @@ An [MCP](https://modelcontextprotocol.io/) server that gives AI assistants direc
 
 This server exposes your Graylog instance(s) as MCP tools, so AI assistants like Claude, Cursor, and others can query logs on your behalf. Instead of context-switching to the Graylog UI, you describe what you're looking for and the assistant handles the rest.
 
-**25 tools** covering:
+**33 tools** covering:
 
 - **Log search** -- full-text and field-filtered queries with pagination, exact/fuzzy matching, and configurable field selection
 - **Contextual analysis** -- fetch surrounding messages around a specific log entry
 - **Aggregations** -- histograms, field statistics, and two-dimensional field-over-time breakdowns
 - **Log clustering** -- group similar messages into structural templates using Drain3, with persistent template libraries per connection
-- **Events** -- search Graylog events, list event definitions and notifications
+- **Events & alerting** -- search events; read, create, update, enable/disable, delete and test event definitions and notifications (write-gated, secrets redacted)
 - **Saved searches** -- save, list, and reuse query configurations
 - **Multi-connection** -- switch between Graylog instances (e.g., nonprod vs prod) within one session
 - **Stream & field discovery** -- list streams, discover distinct field values
@@ -70,7 +70,8 @@ Create `~/.graylog-mcp/config.json`:
   "connections": {
     "nonprod": {
       "baseUrl": "http://graylog-nonprod:9000",
-      "apiToken": "your_api_token"
+      "apiToken": "your_api_token",
+      "requireWriteConfirm": false
     },
     "prod": {
       "baseUrl": "http://graylog-prod:9000",
@@ -87,6 +88,7 @@ Create `~/.graylog-mcp/config.json`:
 | `connections` | Root | Named Graylog instances, each with `baseUrl` and `apiToken` |
 | `defaultFields` | Root | Global default fields returned in search results |
 | `defaultFields` | Connection | Per-connection override (takes priority over global) |
+| `requireWriteConfirm` | Connection | Write tools need `confirm: "yes"`. Default: `true` when the connection name contains `prod`/`production` as a whole token (`prod`, `PROD-eu` yes; `nonprod`, `preprod` no) |
 
 If no `defaultFields` are set, all fields (`*`) are returned.
 
@@ -192,7 +194,26 @@ Templates are persisted at `~/.graylog-mcp/templates/<connection>.json` and impr
 |---|---|
 | `search_events` | Search Graylog events with filters |
 | `get_event_definitions` | List event definitions |
-| `get_event_notifications` | List event notifications |
+| `get_event_notifications` | List event notifications (secrets redacted) |
+| `get_event_definition` | Get one event definition by id |
+| `get_event_notification` | Get one notification by id (secrets redacted) |
+| `create_event_definition` ✍️ | Create an alert; boilerplate defaulted, optional `threshold` shortcut, `schedule`, `dryRun` |
+| `update_event_definition` ✍️ | Deep-merge a `patch` (arrays replaced) into an alert and PUT it; keeps enabled/disabled state; `dryRun` |
+| `delete_event_definition` ✍️ | Delete an alert |
+| `set_event_definition_enabled` ✍️ | Enable (schedule) / disable (unschedule) an alert |
+| `create_event_notification` ✍️ | Create a notification (Slack, Teams, email, HTTP, ...) |
+| `update_event_notification` ✍️ | Deep-merge a `patch` into a notification; untouched secrets are kept; `dryRun` |
+| `delete_event_notification` ✍️ | Delete a notification |
+| `test_event_notification` ✍️ | Send a real test message through a notification |
+
+✍️ = writes to Graylog. On connections with `requireWriteConfirm` the call must include `confirm: "yes"`; without it the tool returns the method, path and (redacted) body it would send. `dryRun` never needs confirm — for definitions it calls Graylog's `/events/definitions/validate` (which checks the `config` block only).
+
+Minimal alert: `{ definition: { title, config: { query, streams, search_within_ms, execute_every_ms } }, threshold: { type: "count", operator: ">", value: 10 } }`. `config.streams` is required on Graylog 7.
+The `threshold` becomes `config.series` (`count-`) plus `config.conditions.expression`.
+
+**Secret redaction**: notification reads replace `webhook_url`, `api_key`, `api_secret`, `basic_auth` and any key containing token/secret/password with `"[REDACTED]"`, and credentials embedded in any URL (`https://user:pass@host`) become `https://[REDACTED]@host`. Updates merge onto the raw stored object, so secrets you don't patch keep their real values, and patch values containing `"[REDACTED]"` are ignored. Encrypted fields (`basic_auth`, `api_secret`) read back as `{ "is_set": true }` rather than `"[REDACTED]"` and are changed with `{ "set_value": "..." }`.
+
+A 403 from these tools means the API token lacks `eventdefinitions:*` / `eventnotifications:*` permission, not that the tool is unsupported.
 
 ### Saved Searches
 
@@ -210,7 +231,7 @@ src/
 ├── index.js                          Server bootstrap and request routing
 ├── config.js                         Connection config and field defaults
 ├── query.js                          Query building and Graylog API client
-├── tools.js                          Tool schema definitions (25 tools)
+├── tools.js                          Tool schema definitions (33 tools)
 ├── timerange.js                      Flexible time range parsing
 ├── aggregations.js                   Histogram, field stats, time-series
 ├── events.js                         Graylog events API
@@ -224,7 +245,8 @@ src/
 │       └── drain3.js                 Drain3 log clustering algorithm
 └── tools/
     ├── cluster-errors.js             cluster_log_messages handler
-    └── template-mgmt.js              Template CRUD handlers
+    ├── template-mgmt.js              Template CRUD handlers
+    └── event-admin.js                Event definition/notification write tools
 ```
 
 ### Adding a Clustering Algorithm

@@ -1,14 +1,15 @@
 {
-    "mcpServers": {
-        "simple-graylog-mcp": {
-            "command": "node",
-            "args": [
-              "/path/to/graylog-mcp/src/index.js"
-            ],
-            "env": {
-              "BASE_URL": "http://graylog1.internal.net.br:9000",
-              "API_TOKEN": "YOUR_GRAYLOG_API_TOKEN_HERE"
-            }
-          }
-    }
+    "connections": {
+        "nonprod": {
+            "baseUrl": "http://graylog-nonprod:9000",
+            "apiToken": "YOUR_GRAYLOG_API_TOKEN_HERE",
+            "requireWriteConfirm": false
+        },
+        "prod": {
+            "baseUrl": "http://graylog-prod:9000",
+            "apiToken": "YOUR_GRAYLOG_API_TOKEN_HERE",
+            "requireWriteConfirm": true
+        }
+    },
+    "defaultFields": ["timestamp", "gl2_message_id", "source", "env", "level", "message", "logger_name"]
 }
