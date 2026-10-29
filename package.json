@@ -13,7 +13,7 @@
     "scripts": {
         "start": "node src/index.js",
         "dev": "node --watch src/index.js",
-        "test": "node test-server.js",
+        "test": "for f in test-*.js; do node $f || exit 1; done",
         "test:manual": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
