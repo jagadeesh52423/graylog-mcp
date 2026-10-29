@@ -20,7 +20,7 @@ This server exposes your Graylog instance(s) as MCP tools, so AI assistants like
 ## Prerequisites
 
 - **Node.js** 18+
-- **Graylog** 6.x (tested on 6.2)
+- **Graylog** 6.x–7.x (tested on 6.2 and 7.1)
 - A Graylog API token ([how to create one](https://go2docs.graylog.org/current/setting_up_graylog/rest_api_access_tokens.html))
 
 ## Installation
@@ -60,6 +60,8 @@ Then point your MCP client to the local entry point:
   }
 }
 ```
+
+Run the tests with `npm test` (runs all `test-*.js` offline; no Graylog needed).
 
 ## Configuration
 
